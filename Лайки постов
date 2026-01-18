@@ -1,0 +1,12 @@
+@PostMapping("/{id}/likes")
+public ResponseEntity<Void> addLike(@PathVariable Long id) {
+    postService.addLike(id);
+    return ResponseEntity.ok().build();
+}
+
+@DeleteMapping("/{id}/likes")
+public ResponseEntity<Void> removeLike(@PathVariable Long id) {
+    postService.removeLike(id);
+    return ResponseEntity.ok().build();
+}
+
