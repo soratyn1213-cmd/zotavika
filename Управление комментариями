@@ -1,0 +1,20 @@
+@PutMapping("/{commentId}")
+public ResponseEntity<Comment> updateComment(
+        @PathVariable Long postId,
+        @PathVariable Long commentId,
+        @RequestBody Comment comment) {
+
+    comment.setId(commentId);
+    comment.setPostId(postId);
+    return ResponseEntity.ok(commentService.updateComment(comment));
+}
+
+@DeleteMapping("/{commentId}")
+public ResponseEntity<Void> deleteComment(
+        @PathVariable Long postId,
+        @PathVariable Long commentId) {
+
+    commentService.deleteComment(postId, commentId);
+    return ResponseEntity.noContent().build();
+}
+
