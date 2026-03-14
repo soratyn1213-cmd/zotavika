@@ -53,3 +53,225 @@
         </plugins>
     </build>
 </project>
+
+package com.example.blog;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class BlogApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(BlogApplication.class, args);
+    }
+}
+
+package com.example.blog.model;
+
+import java.time.LocalDateTime;
+
+public class Post {
+
+    private Long id;
+    private String title;
+    private String content;
+    private LocalDateTime createdAt;
+
+    // getters & setters
+}
+
+package com.example.blog.dto;
+
+public class CreatePostRequest {
+
+    private String title;
+    private String content;
+
+    // getters & setters
+}
+
+package com.example.blog.dao;
+
+import com.example.blog.model.Post;
+
+import java.util.List;
+
+public interface PostDao {
+    Post save(Post post);
+    List<Post> findAll();
+}
+
+package com.example.blog.dao;
+
+import com.example.blog.model.Post;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public class PostDaoImpl implements PostDao {
+
+    private final JdbcTemplate jdbcTemplate;
+
+    public PostDaoImpl(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Override
+    public Post save(Post post) {
+
+        jdbcTemplate.update("""
+            INSERT INTO posts(title, content)
+            VALUES (?,?)
+        """, post.getTitle(), post.getContent());
+
+        return post;
+    }
+
+    @Override
+    public List<Post> findAll() {
+        return jdbcTemplate.query("""
+            SELECT * FROM posts
+        """, (rs, rowNum) -> {
+            Post p = new Post();
+            p.setId(rs.getLong("id"));
+            p.setTitle(rs.getString("title"));
+            p.setContent(rs.getString("content"));
+            p.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+            return p;
+        });
+    }
+}
+
+package com.example.blog.service;
+
+import com.example.blog.dao.PostDao;
+import com.example.blog.dto.CreatePostRequest;
+import com.example.blog.model.Post;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+public class PostService {
+
+    private final PostDao postDao;
+
+    public PostService(PostDao postDao) {
+        this.postDao = postDao;
+    }
+
+    @Transactional
+    public Post create(CreatePostRequest request) {
+
+        Post post = new Post();
+        post.setTitle(request.getTitle());
+        post.setContent(request.getContent());
+        post.setCreatedAt(LocalDateTime.now());
+
+        return postDao.save(post);
+    }
+
+    public List<Post> getAll() {
+        return postDao.findAll();
+    }
+}
+
+package com.example.blog.controller;
+
+import com.example.blog.dto.CreatePostRequest;
+import com.example.blog.model.Post;
+import com.example.blog.service.PostService;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/posts")
+public class PostController {
+
+    private final PostService service;
+
+    public PostController(PostService service) {
+        this.service = service;
+    }
+
+    @PostMapping
+    public Post create(@RequestBody CreatePostRequest request) {
+        return service.create(request);
+    }
+
+    @GetMapping
+    public List<Post> getAll() {
+        return service.getAll();
+    }
+}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/blog
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  sql:
+    init:
+      mode: always
+
+server:
+  port: 8080
+
+CREATE TABLE IF NOT EXISTS posts(
+    id BIGSERIAL PRIMARY KEY,
+    title TEXT,
+    content TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+package com.example.blog;
+
+import com.example.blog.dto.CreatePostRequest;
+import com.example.blog.service.PostService;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+class PostServiceTest {
+
+    @Autowired
+    PostService service;
+
+    @Test
+    void shouldCreatePost() {
+        CreatePostRequest req = new CreatePostRequest();
+        req.setTitle("test");
+        req.setContent("content");
+
+        var post = service.create(req);
+
+        assertNotNull(post);
+    }
+}
+
+## Build
+mvn clean package
+
+## Run
+java -jar target/blog-1.0.0.jar
+
+## Test
+mvn test
+
+docker run -p 5432:5432 \
+-e POSTGRES_PASSWORD=postgres \
+-e POSTGRES_DB=blog postgres
+
+mvn clean package
+java -jar target/blog-1.0.0.jar
